@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 
 public class MeteorSpawner : MonoBehaviour
 {
@@ -11,10 +12,13 @@ public class MeteorSpawner : MonoBehaviour
     [SerializeField] GameObject meteor;
 
 
-	void Start()
-	{
-		StartCoroutine(nameof(SpawnMeteors));
-	}
+	// public override void OnNetworkSpawn()
+	// {
+    //     if (IsServer)
+    //     {
+    //         StartCoroutine(nameof(SpawnMeteors));
+    //     }
+	// }
 
     IEnumerator SpawnMeteors()
     {

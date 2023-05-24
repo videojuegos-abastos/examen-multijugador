@@ -3,34 +3,47 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using TMPro;
+using Unity.Netcode;
 
 [RequireComponent(typeof(NavMeshAgent), typeof(MeshRenderer))]
-class Player : MonoBehaviour
+class Player : NetworkBehaviour
 {
 	[SerializeField] TextMeshProUGUI hitsTMP;
 	[SerializeField] Material inmortalMaterial;
 	[SerializeField] GameObject shield;
     NavMeshAgent agent;
-	int lives = 3;
+	NetworkVariable<int> lives = new NetworkVariable<int>(value: 3, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 	bool immortal = false;
 	bool immortalityUsed = false;
 
 	void Start()
 	{
 		agent = GetComponent<NavMeshAgent>();
-		UpdateLivesUI();
+		UpdateLivesUI(0, lives.Value);
+
+		lives.OnValueChanged += UpdateLivesUI;
+
+		if (IsOwner)
+		{
+			GetComponent<PointerManager>().onPositionSelected.AddListener( MoveTo );
+		}
 	}
 
 	void Update()
 	{
-		if (Input.GetKeyDown(KeyCode.Space) && !immortalityUsed && lives > 0)
-		{
-			Inmortal();
-		}
 
-		if (Input.GetKeyDown(KeyCode.Return) && lives > 0)
+		if (IsOwner)
 		{
-			CreateShield();
+			if (Input.GetKeyDown(KeyCode.Space) && !immortalityUsed && lives.Value > 0)
+			{
+				Inmortal();
+			}
+
+			if (Input.GetKeyDown(KeyCode.Return) && lives.Value > 0)
+			{
+				lives.Value -= 1;
+				CreateShield_ServerRpc();
+			}
 		}
 	}
 
@@ -39,14 +52,14 @@ class Player : MonoBehaviour
         agent.SetDestination(position);
     }
 
-	void UpdateLivesUI()
+	void UpdateLivesUI(int oldValue, int newValue)
 	{
-		if (lives >= 0)
+		if (newValue >= 0)
 		{
-			hitsTMP.text = lives.ToString();
+			hitsTMP.text = lives.Value.ToString();
 		}
 
-		if (lives <= 0)
+		if (newValue <= 0)
 		{
 			hitsTMP.color = Color.red;
 		}
@@ -74,12 +87,11 @@ class Player : MonoBehaviour
 		immortal = false;
 	}
 
-	void CreateShield()
+	[ServerRpc]
+	void CreateShield_ServerRpc(ServerRpcParams parameters = default)
 	{
 		GameObject instance = Instantiate(shield, transform.position, Quaternion.identity);
-
-		lives -= 1;
-		UpdateLivesUI();
+		instance.GetComponent<NetworkObject>().SpawnWithOwnership(parameters.Receive.SenderClientId);
 	}
 
 	void OnCollisionEnter(Collision collision)
@@ -91,14 +103,12 @@ class Player : MonoBehaviour
 
 			if (immortal)
 			{
-				lives += 1;
+				lives.Value += 1;
 			}
 			else
 			{
-				lives -= 1;
+				lives.Value -= 1;
 			}
-
-			UpdateLivesUI();
 		}
     }
 }
