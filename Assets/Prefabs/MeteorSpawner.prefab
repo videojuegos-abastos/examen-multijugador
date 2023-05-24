@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 5528549077467194911}
   - component: {fileID: 5528549077467194908}
   m_Layer: 0
-  m_Name: MeteorManager
+  m_Name: MeteorSpawner
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -47,7 +47,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   center: {x: 0, y: 0, z: 0}
   size: {x: 40, y: 25}
-  waitTime: 2
+  waitTime: 3
   meteor: {fileID: 2206962953603316662, guid: dabe0e1241e896e5abd8cbcec6a473a1, type: 3}
 --- !u!114 &5528549077467194908
 MonoBehaviour:

@@ -3,29 +3,30 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 
-public class MeteorSpawner : MonoBehaviour
+public class MeteorSpawner : NetworkBehaviour
 {
-
     [SerializeField] Vector3Int center = Vector3Int.zero;
     [SerializeField] Vector2Int size = Vector2Int.one;
     [SerializeField] float waitTime = 2f;
     [SerializeField] GameObject meteor;
 
 
-	// public override void OnNetworkSpawn()
-	// {
-    //     if (IsServer)
-    //     {
-    //         StartCoroutine(nameof(SpawnMeteors));
-    //     }
-	// }
+	public override void OnNetworkSpawn()
+	{
+        if (IsServer)
+        {
+            StartCoroutine(nameof(SpawnMeteors));
+        }
+	}
 
     IEnumerator SpawnMeteors()
     {
         while (isActiveAndEnabled)
         {
             Vector3 position = new Vector3(Random.Range(-size.x / 2, size.x / 2), 0, Random.Range(-size.y / 2, size.y / 2));
-            GameObject instance = Instantiate(meteor, transform.position + center + position, Quaternion.identity, transform);
+            GameObject instance = Instantiate(meteor, transform.position + center + position, Quaternion.identity);
+
+            instance.GetComponent<NetworkObject>().Spawn();
 
             yield return new WaitForSeconds(waitTime);
         }

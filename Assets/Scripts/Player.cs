@@ -10,13 +10,14 @@ class Player : NetworkBehaviour
 {
 	[SerializeField] TextMeshProUGUI hitsTMP;
 	[SerializeField] Material inmortalMaterial;
+	[SerializeField] Material otherMaterial;
 	[SerializeField] GameObject shield;
     NavMeshAgent agent;
 	NetworkVariable<int> lives = new NetworkVariable<int>(value: 3, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 	bool immortal = false;
 	bool immortalityUsed = false;
 
-	void Start()
+	public override void OnNetworkSpawn()
 	{
 		agent = GetComponent<NavMeshAgent>();
 		UpdateLivesUI(0, lives.Value);
@@ -27,6 +28,13 @@ class Player : NetworkBehaviour
 		{
 			GetComponent<PointerManager>().onPositionSelected.AddListener( MoveTo );
 		}
+		else
+		{
+			GetComponent<MeshRenderer>().material = otherMaterial;
+			
+			const int OTHER_PLAYER_LAYER = 7;
+			gameObject.layer = OTHER_PLAYER_LAYER;
+		}
 	}
 
 	void Update()
@@ -36,7 +44,8 @@ class Player : NetworkBehaviour
 		{
 			if (Input.GetKeyDown(KeyCode.Space) && !immortalityUsed && lives.Value > 0)
 			{
-				Inmortal();
+				immortalityUsed = true;
+				Immortal_ServerRpc();
 			}
 
 			if (Input.GetKeyDown(KeyCode.Return) && lives.Value > 0)
@@ -65,9 +74,15 @@ class Player : NetworkBehaviour
 		}
 	}
 
-	void Inmortal()
+	[ServerRpc]
+	void Immortal_ServerRpc()
 	{
-		immortalityUsed = true;
+		Immortal_ClientRpc();
+	}
+
+	[ClientRpc]
+	void Immortal_ClientRpc()
+	{
 		StartCoroutine(nameof(ImmortalCoroutine));
 	}
 
@@ -94,21 +109,41 @@ class Player : NetworkBehaviour
 		instance.GetComponent<NetworkObject>().SpawnWithOwnership(parameters.Receive.SenderClientId);
 	}
 
+	[ServerRpc]
+	void DestroyMeteor_ServerRpc(NetworkObjectReference networkReference, ServerRpcParams parameters = default)
+	{
+		if (networkReference.TryGet(out NetworkObject networkObject))
+		{
+			networkObject.Despawn();
+		}
+	}
+
 	void OnCollisionEnter(Collision collision)
     {
-		const string METEOR_TAG = "Meteor";
-        if (collision.gameObject.tag == METEOR_TAG)
+		if (IsOwner)
 		{
-			Destroy(collision.gameObject);
+			const string METEOR_TAG = "Meteor";
+			if (collision.gameObject.tag == METEOR_TAG)
+			{
+				var referenece = new NetworkObjectReference(collision.gameObject.GetComponent<NetworkObject>());
+				DestroyMeteor_ServerRpc(referenece);
 
-			if (immortal)
-			{
-				lives.Value += 1;
+				collision.gameObject.SetActive(false);
+
+				if (immortal)
+				{
+					lives.Value += 1;
+				}
+				else
+				{
+					lives.Value -= 1;
+				}
 			}
-			else
+		
+			if (collision.gameObject.TryGetComponent<Shield>(out Shield shield))
 			{
-				lives.Value -= 1;
+				agent.SetDestination(transform.position);
 			}
-		}
+		}	
     }
 }
